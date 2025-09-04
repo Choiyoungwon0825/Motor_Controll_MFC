@@ -400,19 +400,20 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 				SetDlgItemText(IDC_TIME_STATIC, str);
 
 				OnBnClickedStopBtn();
+
 			}
 			else{
 				str.Format(_T("target_RPM : %d -> current_RPM : %d까지 설정 완료, %d번 프로토콜 진행 \r\n"), target_RPM, current_RPM, nProtocol_step);
 				OutputDebugString(str);
 				str.Format(_T("List No : %d번 프로토콜 진행 \r\n"), nProtocol_step);
 				SetDlgItemText(IDC_INFO_STATIC, str);
+				KillTimer(TIMER_PERIOD);
+				SetTimer(TIMER_USER_TEST, 1000, NULL);
 			}
-			KillTimer(TIMER_PERIOD);
-			SetTimer(TIMER_USER_TEST, 1000, NULL);
 
 		}
 
-		if (target_RPM < 5500) {
+		if (target_RPM < 10000) {
 			OnBnClickedStopBtn();
 			KillTimer(TIMER_PERIOD);
 			KillTimer(TIMER_USER_TEST);
@@ -457,11 +458,12 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 			SetDlgItemText(IDC_INFO_STATIC, str);
 			OutputDebugString(str);
 			OnBnClickedStopBtn();
+			KillTimer(TIMER_PERIOD);
 			KillTimer(TIMER_USER_TEST);
 		}
-		else {
-			OnBnClickedRunBtn();
-		}
+		//else {
+		//	OnBnClickedRunBtn();
+		//}
 
 		nTime_cnt++;
 	}
@@ -552,14 +554,16 @@ void CStepMotorhandlerDlg::OnBnClickedStopBtn()
 {
 	UI_enable();
 	KillTimer(TIMER_USER_TEST);
-	
 	nTime_cnt = -1;
 	target_RPM = 0;
+	current_RPM = 0;
 	nProtocol_cnt = 0;
 	run_Flag = TRUE;
 
 	CStringA cmd;
 	cmd.Format("SPD %u\r\n", target_RPM);
+
+	Sleep(500);
 
 	const unsigned char* buf = reinterpret_cast<const unsigned char*>((LPCSTR)cmd);
 	const int len = cmd.GetLength();
@@ -639,6 +643,27 @@ void CStepMotorhandlerDlg::OnBnClickedProSetBtn()
 	int n_Delta_RPM = GetDlgItemInt(IDC_DELTA_EDIT);
 	int n_Delay = GetDlgItemInt(IDC_DELAY_EDIT);
 
+
+	if (n_Target_RPM < 10000 || n_Target_RPM > 40000) {
+
+		AfxMessageBox(_T("Target은 10000~40000 사이 값을 입력해주세요."));
+		return;
+	}
+	if (n_Control_Period > 10000) {
+
+		AfxMessageBox(_T("Period는 10000 이하의 값을 입력해주세요."));
+		return;
+	}	
+	if (n_Delta_RPM > 10000) {
+
+		AfxMessageBox(_T("Delta RPM은 10000 이하의 값을 입력해주세요."));
+		return;
+	}	
+	if (n_Delay > 10000) {
+
+		AfxMessageBox(_T("Delay는 10000 이하의 값을 입력해주세요."));
+		return;
+	}
 	CString str_Target_RPM, str_Control_Period, str_Delta_RPM, str_Delay;
 
 	str_Target_RPM.Format(_T("%d"), n_Target_RPM);
@@ -859,6 +884,8 @@ void CStepMotorhandlerDlg::UI_enable() {
 	GetDlgItem(IDC_RUN_BTN)->EnableWindow(TRUE);
 	GetDlgItem(IDC_OpenBTN)->EnableWindow(TRUE);
 	GetDlgItem(IDC_CloseBTN)->EnableWindow(TRUE);
+	GetDlgItem(IDC_EDIT_CLEAR_BTN)->EnableWindow(TRUE);
+	GetDlgItem(IDC_PortCOMBO)->EnableWindow(TRUE);
 }
 void CStepMotorhandlerDlg::UI_disable() {
 	GetDlgItem(IDC_PRO_SET_BTN)->EnableWindow(FALSE);
@@ -873,4 +900,6 @@ void CStepMotorhandlerDlg::UI_disable() {
 	GetDlgItem(IDC_RUN_BTN)->EnableWindow(FALSE);
 	GetDlgItem(IDC_OpenBTN)->EnableWindow(FALSE);
 	GetDlgItem(IDC_CloseBTN)->EnableWindow(FALSE);
+	GetDlgItem(IDC_EDIT_CLEAR_BTN)->EnableWindow(FALSE);
+	GetDlgItem(IDC_PortCOMBO)->EnableWindow(FALSE);
 }

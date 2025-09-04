@@ -99,6 +99,7 @@ private :
 
 	int nProtocol_cnt;
 	void Finish_test();
+
 	
 public:
 	BOOL Verify_protocol();
