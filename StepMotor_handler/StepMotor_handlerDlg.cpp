@@ -98,7 +98,7 @@ BOOL CStepMotorhandlerDlg::OnInitDialog()
 
 	m_Timer.AttachListener(*(CMMTimerListener*)this);
 
-	m_PotNum.SetCurSel(7);
+	m_PotNum.SetCurSel(23);
 	
 	bRunning = FALSE;
 	nSet_Runtime = 0;
@@ -347,23 +347,25 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 	}
 	if (nIDEvent == TIMER_PERIOD) {
 
+		KillTimer(TIMER_USER_TEST);
+
 		if (nProtocol_step == 0) {
 			SetNextCurrentRPM(nProtocol_step);
 		}
-		
-		KillTimer(TIMER_USER_TEST);
 
-		if (target_RPM > current_RPM) {
 
-			target_RPM -= delta_RPM;
+		if (target_RPM < current_RPM) {
 
-			if (target_RPM < current_RPM) {
+			target_RPM += delta_RPM;
+
+			if (target_RPM > current_RPM){
 				target_RPM = current_RPM;
-			}
+				}
+
 			CString str;
-			str.Format(_T("1.  감속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
+			str.Format(_T("1. 가속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
 			OutputDebugString(str);
-			str.Format(_T("감속 설정 중, RPM : %d\r\n"), target_RPM);
+			str.Format(_T("가속 설정 중, SPD : %d\r\n"), target_RPM);
 			SetDlgItemText(IDC_INFO_STATIC, str);
 			SetDlgItemInt(IDC_TARGET_EDIT, target_RPM);
 
@@ -371,17 +373,18 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 
 
 		}
-		else if (target_RPM < current_RPM) {
+		else if (target_RPM > current_RPM) {
 
-			target_RPM += delta_RPM;
+			target_RPM -= delta_RPM;
 
-			if (target_RPM > current_RPM){
+			if (target_RPM < current_RPM) {
 				target_RPM = current_RPM;
-				}
+			}
+
 			CString str;
-			str.Format(_T("2. 가속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
+			str.Format(_T("2. 감속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
 			OutputDebugString(str);
-			str.Format(_T("가속 설정 중, RPM : %d\r\n"), target_RPM);
+			str.Format(_T("감속 설정 중, SPD : %d\r\n"), target_RPM);
 			SetDlgItemText(IDC_INFO_STATIC, str);
 			SetDlgItemInt(IDC_TARGET_EDIT, target_RPM);
 
@@ -409,11 +412,12 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 				SetDlgItemText(IDC_INFO_STATIC, str);
 				KillTimer(TIMER_PERIOD);
 				SetTimer(TIMER_USER_TEST, 1000, NULL);
+				SetNextCurrentRPM(nProtocol_step + 1);
 			}
 
 		}
 
-		if (target_RPM < 10000) {
+		if (target_RPM < 1000) {
 			OnBnClickedStopBtn();
 			KillTimer(TIMER_PERIOD);
 			KillTimer(TIMER_USER_TEST);
@@ -428,7 +432,7 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 			CString str;
 			str.Format(_T("타이머 대기. \r\n"), nTime_cnt + 1);
 
-			SetDlgItemText(IDC_TIME_STATIC, str);
+			SetDlgItemText(IDC_TIME_STATIC, str);                                          
 			if (nProtocol_step < 0) {
 				nProtocol_step = 0;
 			}
@@ -449,7 +453,6 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 
 			str.Format(_T("nProtocol_cnt : %d\r\n"), nProtocol_cnt);
 			OutputDebugString(str);
-			SetNextCurrentRPM(nProtocol_step + 1);
 		
 		}
 		if (cProtocol_Info.nProtocol_len == nProtocol_cnt) {
@@ -644,9 +647,9 @@ void CStepMotorhandlerDlg::OnBnClickedProSetBtn()
 	int n_Delay = GetDlgItemInt(IDC_DELAY_EDIT);
 
 
-	if (n_Target_RPM < 10000 || n_Target_RPM > 40000) {
+	if (n_Target_RPM < 1000 || n_Target_RPM > 28000) {
 
-		AfxMessageBox(_T("Target은 10000~40000 사이 값을 입력해주세요."));
+		AfxMessageBox(_T("Target은 1000~28000 사이 값을 입력해주세요."));
 		return;
 	}
 	if (n_Control_Period > 10000) {
