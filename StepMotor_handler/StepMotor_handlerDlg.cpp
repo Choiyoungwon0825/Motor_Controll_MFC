@@ -19,6 +19,9 @@ const CString run_Alarm_text = _T("[Alarm] 작동 중 설정 변경은 정지 �
 #define TIMER_USER_TEST		2000
 #define TIMER_STOP 3000
 #define TIMER_PERIOD 4000
+#define TIMER_TOTAL		 5000
+
+
 int nDelay = 0;
 
 
@@ -32,7 +35,7 @@ public:
 #endif
 
 protected:
-	virtual void DoDataExchange(CDataExchange* pDX); 
+	virtual void DoDataExchange(CDataExchange* pDX);
 
 protected:
 	DECLARE_MESSAGE_MAP()
@@ -89,6 +92,9 @@ BEGIN_MESSAGE_MAP(CStepMotorhandlerDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_LOAD_BTN, &CStepMotorhandlerDlg::OnBnClickedLoadBtn)
 	ON_BN_CLICKED(IDC_SAVE_BTN, &CStepMotorhandlerDlg::OnBnClickedSaveBtn)
 	ON_BN_CLICKED(IDC_EDIT_CLEAR_BTN, &CStepMotorhandlerDlg::OnBnClickedEditClearBtn)
+	ON_NOTIFY(NM_DBLCLK, IDC_PROTOCOL_WRITE_LIST, &CStepMotorhandlerDlg::OnNMDblclkList)
+	ON_NOTIFY(NM_CLICK, IDC_PROTOCOL_WRITE_LIST, &CStepMotorhandlerDlg::OnNMClickList)  
+	ON_NOTIFY(LVN_KEYDOWN, IDC_PROTOCOL_WRITE_LIST, &CStepMotorhandlerDlg::OnLvnKeydownList)
 END_MESSAGE_MAP()
 
 
@@ -99,22 +105,22 @@ BOOL CStepMotorhandlerDlg::OnInitDialog()
 	m_Timer.AttachListener(*(CMMTimerListener*)this);
 
 	m_PotNum.SetCurSel(23);
-	
+
 	bRunning = FALSE;
 	nSet_Runtime = 0;
-	
+
 	CRect rt;
 	m_Write_List_Ctrl.GetWindowRect(&rt);
 	m_Write_List_Ctrl.SetExtendedStyle(LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);
 
 
-	m_Write_List_Ctrl.InsertColumn(0, TEXT("No"), LVCFMT_CENTER, rt.Width()*0.198); 
-	m_Write_List_Ctrl.InsertColumn(1, TEXT("TargetRPM"), LVCFMT_CENTER, rt.Width()*0.198); 
-	m_Write_List_Ctrl.InsertColumn(2, TEXT("Period"), LVCFMT_CENTER, rt.Width()*0.198);
-	m_Write_List_Ctrl.InsertColumn(3, TEXT("Delta"), LVCFMT_CENTER, rt.Width()*0.198);  
-	m_Write_List_Ctrl.InsertColumn(4, TEXT("Delay"), LVCFMT_CENTER, rt.Width()*0.198);     
- 
-	return TRUE; 
+	m_Write_List_Ctrl.InsertColumn(0, TEXT("No"), LVCFMT_CENTER, rt.Width()*0.001);
+	m_Write_List_Ctrl.InsertColumn(1, TEXT("SPD"), LVCFMT_CENTER, rt.Width()*0.248);
+	m_Write_List_Ctrl.InsertColumn(2, TEXT("Period"), LVCFMT_CENTER, rt.Width()*0.248);
+	m_Write_List_Ctrl.InsertColumn(3, TEXT("Delta"), LVCFMT_CENTER, rt.Width()*0.248);
+	m_Write_List_Ctrl.InsertColumn(4, TEXT("Delay"), LVCFMT_CENTER, rt.Width()*0.248);
+
+	return TRUE;
 }
 
 void CStepMotorhandlerDlg::OnSysCommand(UINT nID, LPARAM lParam)
@@ -326,94 +332,109 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 {
 	CDialogEx::OnTimer(nIDEvent);
 
-
 	if (nIDEvent == TIMER_TIME_RUN)
 	{
-		if (Delay == nTime_cnt) {
-
-			CString str;
-			str.Format(_T("Run 끝\r\n"), nTime_cnt);
-			OutputDebugString(str);
-			KillTimer(TIMER_TIME_RUN);
-			OnBnClickedStopBtn();
-
-		}
-		else {
-			CString str;
-			str.Format(_T("nTime_cnt : %d\r\n"), nTime_cnt + 1);
-			OutputDebugString(str);
-		}
-		nTime_cnt++;
+		nTime_total++;
 	}
+
 	if (nIDEvent == TIMER_PERIOD) {
 
-		KillTimer(TIMER_USER_TEST);
 
 		if (nProtocol_step == 0) {
 			SetNextCurrentRPM(nProtocol_step);
-		}
-
-
-		if (target_RPM < current_RPM) {
-
-			target_RPM += delta_RPM;
-
-			if (target_RPM > current_RPM){
-				target_RPM = current_RPM;
-				}
-
 			CString str;
-			str.Format(_T("1. 가속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
-			OutputDebugString(str);
-			str.Format(_T("가속 설정 중, SPD : %d\r\n"), target_RPM);
-			SetDlgItemText(IDC_INFO_STATIC, str);
-			SetDlgItemInt(IDC_TARGET_EDIT, target_RPM);
-
-			OnBnClickedRunBtn2();
-
-
+			str.Format(_T("Now SPD : %d"), target_RPM);
+			SetDlgItemText(IDC_SPD_STATIC, str);
 		}
-		else if (target_RPM > current_RPM) {
 
-			target_RPM -= delta_RPM;
+		if (target_RPM != current_RPM) {
+			KillTimer(TIMER_USER_TEST);
 
 			if (target_RPM < current_RPM) {
-				target_RPM = current_RPM;
+
+				target_RPM += delta_RPM;
+
+				if ((int)target_RPM > (int)current_RPM || delta_RPM == 0) {
+					target_RPM = current_RPM;
+				}
+
+				CString str;
+				str.Format(_T("1. 가속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
+				OutputDebugString(str);
+				str.Format(_T("가속 중 %d -> %d \r\n"), target_RPM, current_RPM);
+				SetDlgItemText(IDC_INFO_STATIC, str);
+				SetDlgItemText(IDC_TIME_STATIC, _T("       "));
+				str.Format(_T("Now SPD : %d"), target_RPM);
+				SetDlgItemText(IDC_SPD_STATIC, str);
+				SetDlgItemInt(IDC_TARGET_EDIT, target_RPM);
+
+				OnBnClickedRunBtn2();
+
+
 			}
 
-			CString str;
-			str.Format(_T("2. 감속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
-			OutputDebugString(str);
-			str.Format(_T("감속 설정 중, SPD : %d\r\n"), target_RPM);
-			SetDlgItemText(IDC_INFO_STATIC, str);
-			SetDlgItemInt(IDC_TARGET_EDIT, target_RPM);
+			else if (target_RPM > current_RPM) {
 
-			OnBnClickedRunBtn2();
+				target_RPM -= delta_RPM;
+
+				if ((int)target_RPM < (int)current_RPM || delta_RPM == 0) {
+					target_RPM = current_RPM;
+				}
+
+				CString str;
+				str.Format(_T("2. 감속 설정 중 target_RPM : %d, current_RPM : %d\r\n"), target_RPM, current_RPM);
+				OutputDebugString(str);
+				str.Format(_T("감속 중 %d -> %d \r\n"), target_RPM, current_RPM);
+				SetDlgItemText(IDC_INFO_STATIC, str);
+				SetDlgItemText(IDC_TIME_STATIC, _T("       "));
+				str.Format(_T("Now SPD : %d"), target_RPM);
+				SetDlgItemText(IDC_SPD_STATIC, str);
+				SetDlgItemInt(IDC_TARGET_EDIT, target_RPM);
+
+				OnBnClickedRunBtn2();
 
 
+			}
+
+			nTime_total++;
+
+			CString s;
+			s.Format(_T("총 시간 : %d초 \r\n"), nTime_total);
+			OutputDebugString(s);
+			SetDlgItemText(IDC_TIME_TOTAL_STATIC, s);
 		}
 		else {
 
 			CString str;
 			if (cProtocol_Info.nProtocol_len == nProtocol_cnt) {
-				str.Format(_T("Protocol 끝\r\n"));
+				str.Format(_T("Protocol End\r\n"));
 				SetDlgItemText(IDC_INFO_STATIC, str);
 
-				str.Format(_T("타이머 종료. \r\n"), nTime_cnt + 1);
+				str.Format(_T("Time over. \r\n"), nTime_cnt + 1);
 				SetDlgItemText(IDC_TIME_STATIC, str);
+
+
+				SetDlgItemText(IDC_SPD_STATIC, _T("          "));
 
 				OnBnClickedStopBtn();
 
 			}
-			else{
+			else {
 				str.Format(_T("target_RPM : %d -> current_RPM : %d까지 설정 완료, %d번 프로토콜 진행 \r\n"), target_RPM, current_RPM, nProtocol_step);
 				OutputDebugString(str);
-				str.Format(_T("List No : %d번 프로토콜 진행 \r\n"), nProtocol_step);
+				str.Format(_T("SPD: %d 설정완료, %d번 프로토콜 진행\r\n"), target_RPM, nProtocol_step);
 				SetDlgItemText(IDC_INFO_STATIC, str);
-				KillTimer(TIMER_PERIOD);
 				SetTimer(TIMER_USER_TEST, 1000, NULL);
+				KillTimer(TIMER_PERIOD);
 				SetNextCurrentRPM(nProtocol_step + 1);
 			}
+			nTime_total++;
+
+			CString s;
+			s.Format(_T("총 시간 : %d초 \r\n"), nTime_total);
+			OutputDebugString(s);
+			SetDlgItemText(IDC_TIME_TOTAL_STATIC, s);
+
 
 		}
 
@@ -423,8 +444,10 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 			KillTimer(TIMER_USER_TEST);
 		}
 	}
-	if (nIDEvent == TIMER_USER_TEST) {	
+	if (nIDEvent == TIMER_USER_TEST) {
 
+		SetTimer(TIMER_TOTAL, 1000, NULL);
+		
 		if (Delay == nTime_cnt) {
 			nProtocol_step++;
 			nProtocol_cnt++;
@@ -432,7 +455,7 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 			CString str;
 			str.Format(_T("타이머 대기. \r\n"), nTime_cnt + 1);
 
-			SetDlgItemText(IDC_TIME_STATIC, str);                                          
+			SetDlgItemText(IDC_TIME_STATIC, str);
 			if (nProtocol_step < 0) {
 				nProtocol_step = 0;
 			}
@@ -448,29 +471,35 @@ void CStepMotorhandlerDlg::OnTimer(UINT_PTR nIDEvent)
 			CString str;
 			str.Format(_T("nTime_cnt : %d\r\n"), nTime_cnt + 1);
 			OutputDebugString(str);
-			str.Format(_T("%d초 경과.. \r\n"), nTime_cnt + 1);
+			str.Format(_T("Protocol(%d) 진행 %d초 경과.. \r\n"), nProtocol_cnt, nTime_cnt + 1);
 			SetDlgItemText(IDC_TIME_STATIC, str);
 
 			str.Format(_T("nProtocol_cnt : %d\r\n"), nProtocol_cnt);
 			OutputDebugString(str);
-		
+
 		}
 		if (cProtocol_Info.nProtocol_len == nProtocol_cnt) {
 			CString str;
-			str.Format(_T("Protocol 끝\r\n"));
+			str.Format(_T("Protocol End\r\n"));
 			SetDlgItemText(IDC_INFO_STATIC, str);
 			OutputDebugString(str);
 			OnBnClickedStopBtn();
 			KillTimer(TIMER_PERIOD);
 			KillTimer(TIMER_USER_TEST);
+			KillTimer(TIMER_TOTAL);
 		}
 		//else {
 		//	OnBnClickedRunBtn();
 		//}
 
 		nTime_cnt++;
-	}
+		nTime_total++;
 
+		CString s;
+		s.Format(_T("총 시간 : %d초 \r\n"), nTime_total);
+		OutputDebugString(s);
+		SetDlgItemText(IDC_TIME_TOTAL_STATIC, s);
+	}
 }
 
 
@@ -532,7 +561,7 @@ void CStepMotorhandlerDlg::OnBnClickedRunBtn()
 
 
 	}
-	if (run_Flag == TRUE){
+	if (run_Flag == TRUE) {
 		nProtocol_step = 0;
 
 		SetNextTargetRPM(nProtocol_step);
@@ -558,15 +587,17 @@ void CStepMotorhandlerDlg::OnBnClickedStopBtn()
 	UI_enable();
 	KillTimer(TIMER_USER_TEST);
 	nTime_cnt = -1;
+	nTime_total = -1;
 	target_RPM = 0;
 	current_RPM = 0;
 	nProtocol_cnt = 0;
+
 	run_Flag = TRUE;
 
 	CStringA cmd;
 	cmd.Format("SPD %u\r\n", target_RPM);
 
-	Sleep(500);
+	//Sleep(500);
 
 	const unsigned char* buf = reinterpret_cast<const unsigned char*>((LPCSTR)cmd);
 	const int len = cmd.GetLength();
@@ -576,14 +607,15 @@ void CStepMotorhandlerDlg::OnBnClickedStopBtn()
 	msg.Format(_T("send data : %d %u"), target_RPM);
 	msg.Format(_T("모터 끝\r\n"), target_RPM);
 	OutputDebugString(msg);
-	msg.Format(_T("Protocol 끝, 모터 정지\r\n"), target_RPM);
+	msg.Format(_T("Protocol 종료.\r\n"), target_RPM);
 	SetDlgItemText(IDC_INFO_STATIC, msg);
-
+	msg.Format(_T("타이머 정지"));
+	SetDlgItemText(IDC_TIME_STATIC, msg);
 	OnBnClickedEditClearBtn();
 	//m_edit_log.ReplaceSel(_T("모터를 정지합니다.\r\n"));
 }
 
-void CStepMotorhandlerDlg::SetTargetRPM(int target) 
+void CStepMotorhandlerDlg::SetTargetRPM(int target)
 {
 
 	target_RPM = target;
@@ -606,7 +638,7 @@ void CStepMotorhandlerDlg::SetCurrentRPM(int rpm)
 	OutputDebugString(str);
 }
 
-void CStepMotorhandlerDlg::SetControlPeriod(int period) 
+void CStepMotorhandlerDlg::SetControlPeriod(int period)
 {
 	control_Period = period;
 
@@ -615,14 +647,14 @@ void CStepMotorhandlerDlg::SetControlPeriod(int period)
 	SetTimer(TIMER_PERIOD, control_Period, NULL);
 }
 
-void CStepMotorhandlerDlg::SetDeltaRPM(int delta) 
+void CStepMotorhandlerDlg::SetDeltaRPM(int delta)
 {
 	delta_RPM = delta;
 
 	SetDlgItemInt(IDC_DELTA_EDIT, delta_RPM);
 }
 
-void CStepMotorhandlerDlg::SetDelay(int delay) 
+void CStepMotorhandlerDlg::SetDelay(int delay)
 {
 
 	Delay = delay;
@@ -646,22 +678,27 @@ void CStepMotorhandlerDlg::OnBnClickedProSetBtn()
 	int n_Delta_RPM = GetDlgItemInt(IDC_DELTA_EDIT);
 	int n_Delay = GetDlgItemInt(IDC_DELAY_EDIT);
 
-
+	if (m_Write_List_Ctrl.GetItemCount() != 0) {
+		if (n_Delta_RPM == 0 && n_Control_Period > 0) {
+			AfxMessageBox(_T("DeltaRPM이 0일때 Period 값은 0 이어야합니다."));
+			return;
+		}
+	}
 	if (n_Target_RPM < 1000 || n_Target_RPM > 28000) {
 
-		AfxMessageBox(_T("Target은 1000~28000 사이 값을 입력해주세요."));
+		AfxMessageBox(_T("SPD는 1000~28000 사이 값을 입력해주세요."));
 		return;
 	}
 	if (n_Control_Period > 10000) {
 
 		AfxMessageBox(_T("Period는 10000 이하의 값을 입력해주세요."));
 		return;
-	}	
+	}
 	if (n_Delta_RPM > 10000) {
 
 		AfxMessageBox(_T("Delta RPM은 10000 이하의 값을 입력해주세요."));
 		return;
-	}	
+	}
 	if (n_Delay > 10000) {
 
 		AfxMessageBox(_T("Delay는 10000 이하의 값을 입력해주세요."));
@@ -865,8 +902,9 @@ void CStepMotorhandlerDlg::OnBnClickedRunBtn2()
 	send_data(const_cast<unsigned char*>(buf), len);
 
 	CString msg;
-	msg.Format(_T("target_RPM : %d, current_RPM : %d \r\n"),target_RPM , current_RPM);
+	msg.Format(_T("target_RPM : %d, current_RPM : %d \r\n"), target_RPM, current_RPM);
 	OutputDebugString(msg);
+
 
 	if (target_RPM == 0) {
 		KillTimer(TIMER_USER_TEST);
@@ -905,4 +943,110 @@ void CStepMotorhandlerDlg::UI_disable() {
 	GetDlgItem(IDC_CloseBTN)->EnableWindow(FALSE);
 	GetDlgItem(IDC_EDIT_CLEAR_BTN)->EnableWindow(FALSE);
 	GetDlgItem(IDC_PortCOMBO)->EnableWindow(FALSE);
+}
+
+void CStepMotorhandlerDlg::OnNMDblclkList(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMITEMACTIVATE pNMITEM = (LPNMITEMACTIVATE)pNMHDR;
+
+	iSavedItem = pNMITEM->iItem;
+	iSavedSubitem = pNMITEM->iSubItem;
+
+	if (pNMITEM->iItem != -1)
+	{
+		CRect rect;
+
+		if (pNMITEM->iSubItem == 0)
+		{
+			m_Write_List_Ctrl.GetItemRect(pNMITEM->iItem, rect, LVIR_BOUNDS);
+			rect.right = rect.left + m_Write_List_Ctrl.GetColumnWidth(0);
+		}
+		else
+		{
+			m_Write_List_Ctrl.GetSubItemRect(pNMITEM->iItem, pNMITEM->iSubItem, LVIR_BOUNDS, rect);
+		}
+
+		m_Write_List_Ctrl.ClientToScreen(rect);
+		this->ScreenToClient(rect);
+
+		GetDlgItem(IDC_EDIT_MODIFY)->SetWindowText(m_Write_List_Ctrl.GetItemText(pNMITEM->iItem, pNMITEM->iSubItem));
+		GetDlgItem(IDC_EDIT_MODIFY)->SetWindowPos(NULL, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_SHOWWINDOW);
+		GetDlgItem(IDC_EDIT_MODIFY)->SetFocus();
+	}
+	*pResult = 0;
+}
+
+void CStepMotorhandlerDlg::OnNMClickList(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMITEMACTIVATE pNMITEM = (LPNMITEMACTIVATE)pNMHDR;
+
+	iSavedItem = iSavedSubitem = -1;
+	GetDlgItem(IDC_EDIT_MODIFY)->SetWindowPos(NULL, 0, 0, 0, 0, SWP_HIDEWINDOW);
+
+	if (pNMITEM->iItem != -1)
+	{
+		iSavedItem = pNMITEM->iItem;
+		iSavedSubitem = pNMITEM->iSubItem;
+	}
+	*pResult = 0;
+}
+
+
+void CStepMotorhandlerDlg::OnLvnKeydownList(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMLVKEYDOWN pLVKeyDow = reinterpret_cast<LPNMLVKEYDOWN>(pNMHDR);
+
+	if (pLVKeyDow->wVKey == VK_F2)
+	{
+		if (iSavedItem != -1)
+		{
+			CRect rect;
+
+			if (iSavedSubitem == 0)
+			{
+				m_Write_List_Ctrl.GetItemRect(iSavedItem, rect, LVIR_BOUNDS);
+				rect.right = rect.left + m_Write_List_Ctrl.GetColumnWidth(0);
+			}
+			else
+			{
+				m_Write_List_Ctrl.GetSubItemRect(iSavedItem, iSavedSubitem, LVIR_BOUNDS, rect);
+			}
+
+			m_Write_List_Ctrl.ClientToScreen(rect);
+			this->ScreenToClient(rect);
+
+			GetDlgItem(IDC_EDIT_MODIFY)->SetWindowText(m_Write_List_Ctrl.GetItemText(iSavedItem, iSavedSubitem));
+
+			GetDlgItem(IDC_EDIT_MODIFY)->SetWindowPos(NULL, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_SHOWWINDOW);
+			GetDlgItem(IDC_EDIT_MODIFY)->SetFocus();
+		}
+	}
+	*pResult = 0;
+}
+
+BOOL CStepMotorhandlerDlg::PreTranslateMessage(MSG* pMsg)
+{
+	// TODO: Add your specialized code here and/or call the base class
+	if (pMsg->message == WM_KEYDOWN) {
+		if (pMsg->wParam == VK_RETURN) {
+
+			if (pMsg->hwnd == GetDlgItem(IDC_EDIT_MODIFY)->GetSafeHwnd())
+			{
+				CString str;
+				GetDlgItemText(IDC_EDIT_MODIFY, str);
+				m_Write_List_Ctrl.SetItemText(iSavedItem, iSavedSubitem, str);
+
+				GetDlgItem(IDC_EDIT_MODIFY)->SetWindowPos(NULL, 0, 0, 0, 0, SWP_HIDEWINDOW);
+			}
+
+			return TRUE;
+		}
+
+		if (pMsg->wParam == VK_ESCAPE)
+		{
+			return TRUE;
+		}
+	}
+
+	return CDialog::PreTranslateMessage(pMsg);
 }

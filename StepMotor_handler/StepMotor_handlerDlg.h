@@ -91,6 +91,7 @@ private :
 	int nProtocol_step;
 	int nSet_Runtime;
 	int nTime_cnt;
+	int nTime_total;
 
 	unsigned int before_RPM, target_RPM, control_Period, delta_RPM, Delay, current_RPM; // 현재 변수 이름을 거꾸로 써놨음, 원래 target_RPM 자리에 current_RPM, current_RPM 자리에 target_RPM으로 쓰임.
 	CString str_edit_log;
@@ -135,6 +136,9 @@ public:
 	afx_msg void OnBnClickedSaveBtn();
 	afx_msg void OnBnClickedEditClearBtn();
 
-
-
+	int iSavedItem, iSavedSubitem;
+	void OnNMDblclkList(NMHDR *pNMHDR, LRESULT *pResult);
+	void OnNMClickList(NMHDR *pNMHDR, LRESULT *pResult);
+	void OnLvnKeydownList(NMHDR *pNMHDR, LRESULT *pResult);
+	BOOL PreTranslateMessage(MSG* pMsg);
 };

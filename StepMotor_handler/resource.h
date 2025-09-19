@@ -58,6 +58,7 @@
 #define IDC_STATIC_ACC                  1040
 #define IDC_TIME_STATIC                 1040
 #define IDC_STATIC_DEC                  1041
+#define IDC_TIME_TOTAL_STATIC           1041
 #define IDC_STATIC_RUNTIME              1042
 #define IDC_TARGET_EDIT                 1043
 #define IDC_EDIT_DEC                    1044
@@ -68,6 +69,8 @@
 #define IDC_EDIT_CLEAR_BTN              1048
 #define IDC_CURRENT_EDIT                1050
 #define IDC_INFO_STATIC                 1051
+#define IDC_SPD_STATIC                  1052
+#define IDC_EDIT_MODIFY                 1053
 
 // Next default values for new objects
 // 
@@ -75,7 +78,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1052
+#define _APS_NEXT_CONTROL_VALUE         1054
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
